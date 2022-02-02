@@ -26,6 +26,8 @@
 #include "common.h"
 #include "window-system.h"
 #include "uinput-device.h"
+#include "x-set-keys.h"
+#include "config.h"
 
 static struct _KeyboardData_ {
   int min_keycodes;
@@ -175,6 +177,48 @@ static gboolean _handle_event(gpointer user_data)
   return TRUE;
 }
 
+static gchar *_get_focus_config(Display *display, Window focus_window)
+{
+        /* For only class */
+        XClassHint focus_class_hints;
+        Window focus_root;
+        Window focus_parent;
+        Window *focus_children;
+        guint focus_nchildren;
+
+        gchar *result;
+
+        for (;;) {
+                if (XGetClassHint(display, focus_window, &focus_class_hints)) {
+                        break;
+                }
+                if (!XQueryTree(display, focus_window, &focus_root, &focus_parent, &focus_children, &focus_nchildren)) {
+                        print_error("XQueryTree failed focus_window=%lx", focus_window);
+                        return FALSE;
+                }
+                XFree(focus_children);
+                if (focus_window == focus_root || focus_parent == focus_root) {
+                        g_critical("Can not get focus_window class for input focus focus_window");
+                        return FALSE;
+                }
+                focus_window = focus_parent;
+        }
+        if (!g_strcmp0("emacs", focus_class_hints.res_name) || !g_strcmp0("Emacs", focus_class_hints.res_class)) {
+                result="/home/swint/bin/x-set-keys_emacs.conf";
+        }
+        else if (!g_strcmp0("urxvt", focus_class_hints.res_name) || !g_strcmp0("URxvt", focus_class_hints.res_class) || !g_strcmp0("tabbed", focus_class_hints.res_name) || !g_strcmp0("tabbed", focus_class_hints.res_name)) {
+                result="/home/swint/bin/x-set-keys_urxvt.conf";
+        }
+        else {
+                result="/home/swint/bin/x-set-keys.conf";
+        }
+
+        XFree(focus_class_hints.res_name);
+        XFree(focus_class_hints.res_class);
+
+        return result;
+}
+
 static gboolean _dispatch_event(XSetKeys *xsk,
                                 gboolean *xkb_rule_changed,
                                 gboolean *keymapping_changed,
@@ -182,6 +226,8 @@ static gboolean _dispatch_event(XSetKeys *xsk,
 {
   Display *display = xsk_get_display(xsk);
   WindowSystem *ws = xsk_get_window_system(xsk);
+  /* gchar *old_config_filepath; */
+  gchar *new_config_filepath;
 
   while (XPending(display)) {
     XEvent event;
@@ -197,6 +243,15 @@ static gboolean _dispatch_event(XSetKeys *xsk,
 
         focus_window = _get_focus_window(display);
         if (focus_window != ws->focus_window) {
+          new_config_filepath = _get_focus_config(display, focus_window);
+
+          /* /\* 根据当前窗口改变配置文件 *\/ */
+          if (new_config_filepath) {
+                  xsk_mapping_changed(xsk);
+                  /* 根据当前窗口改变配置文件 */
+                  config_load(xsk, new_config_filepath);
+          }
+
           if (!_is_valid_window(focus_window)) {
             g_critical("XGetInputFocus returned special window");
             return FALSE;

@@ -201,10 +201,55 @@ static gint _handle_xio_error(Display *display)
   return 0;
 }
 
+/* static gchar *_get_focus_config(XSetKeys *xsk, const _Arguments *arguments) */
+/* { */
+/*         /\* For only class *\/ */
+/*         XClassHint focus_class_hints; */
+/*         Window focus_root; */
+/*         Window focus_parent; */
+/*         Window *focus_children; */
+/*         guint focus_nchildren; */
+
+/*         Display *display = xsk_get_display(xsk); */
+/*         WindowSystem *ws = xsk_get_window_system(xsk); */
+/*         Window focus_window = ws->focus_window; */
+
+/*         gchar *result; */
+
+/*         for (;;) { */
+/*                 if (XGetClassHint(display, focus_window, &focus_class_hints)) { */
+/*                         break; */
+/*                 } */
+/*                 if (!XQueryTree(display, focus_window, &focus_root, &focus_parent, &focus_children, &focus_nchildren)) { */
+/*                         print_error("XQueryTree failed focus_window=%lx", focus_window); */
+/*                         return FALSE; */
+/*                 } */
+/*                 XFree(focus_children); */
+/*                 if (focus_window == focus_root || focus_parent == focus_root) { */
+/*                         g_critical("Can not get focus_window class for input focus focus_window"); */
+/*                         return FALSE; */
+/*                 } */
+/*                 focus_window = focus_parent; */
+/*         } */
+/*         if (!g_strcmp0("Emacs", focus_class_hints.res_name) || !g_strcmp0("Emacs", focus_class_hints.res_class)) { */
+/*                 result="/home/swint/bin/x-set-keys_emacs.conf"; */
+/*         } */
+/*         else { */
+/*                 result=arguments->config_filepath; */
+/*         } */
+
+/*         XFree(focus_class_hints.res_name); */
+/*         XFree(focus_class_hints.res_class); */
+
+/*         return result; */
+/* } */
+
 static gboolean _run(const _Arguments *arguments)
 {
   gboolean is_restart = FALSE;
   XSetKeys xsk = { 0 };
+  /* gchar *old_config_filepath; */
+  /* gchar *new_config_filepath = arguments->config_filepath; */
 
   if (setjmp(_xio_error_env)) {
     _error_occurred = TRUE;
@@ -234,6 +279,20 @@ static gboolean _run(const _Arguments *arguments)
            !_caught_sighup &&
            !_error_occurred) {
       g_main_context_iteration(NULL, TRUE);
+
+      /* old_config_filepath = new_config_filepath; */
+      /* new_config_filepath = _get_focus_config(&xsk, arguments); */
+
+      /* /\* 根据当前窗口改变配置文件 *\/ */
+      /* if (!_error_occurred && (old_config_filepath != new_config_filepath)) { */
+      /*         xsk_mapping_changed(&xsk); */
+      /*         /\* 根据当前窗口改变配置文件 *\/ */
+      /*         if (!_error_occurred && */
+      /*             !config_load(&xsk, new_config_filepath)) { */
+      /*                 _error_occurred = TRUE; */
+      /*         } */
+      /* } */
+
       if (_caught_sigusr1 && !_error_occurred) {
         g_message("Keyboard mapping changed");
         xsk_mapping_changed(&xsk);
